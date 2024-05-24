@@ -3,6 +3,7 @@
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+- Initial support for matching regular expressions using a corresponding DFA.
 
 <!-- next-url -->
 

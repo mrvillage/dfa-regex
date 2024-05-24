@@ -2,7 +2,7 @@
 name = "dfa-regex"
 version = "0.0.1"
 edition = "2021"
-description = "Compile regular expressions to DFAs"
+description = "Match regular expressions using a corresponding DFA"
 license = "MIT"
 repository = "https://github.com/mrvillage/dfa-regex"
 

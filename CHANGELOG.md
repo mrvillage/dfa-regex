@@ -3,8 +3,12 @@
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+
+## [0.0.1] - 2024-05-24
 - Initial support for matching regular expressions using a corresponding DFA.
 
 <!-- next-url -->
 
-[unreleased]: https://github.com/mrvillage/dfa-regex/compare/v0.0.0...HEAD
+[unreleased]: https://github.com/mrvillage/dfa-regex/compare/v0.0.1...HEAD
+
+[0.0.1]: https://github.com/mrvillage/dfa-regex/compare/v0.0.0...v0.0.1

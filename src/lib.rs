@@ -5,6 +5,7 @@ use std::{
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
+use thiserror::Error;
 
 #[derive(Debug)]
 struct Ast(Union);
@@ -21,23 +22,26 @@ enum Concat {
     Star(Box<Star>),
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug)]
 enum Star {
-    Star(Box<Optional>),
-    Optional(Box<Optional>),
+    Star(Box<Terminal>),
+    Optional(Box<Terminal>),
+    Terminal(Box<Terminal>),
 }
 
 #[derive(Debug)]
-enum Optional {
-    Optional(Box<Ast>),
+enum Terminal {
     AnyChar,
     Char(char),
     Group(Box<Ast>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 enum ParseError {
+    #[error("unexpected character: {0}")]
     UnexpectedChar(char),
+    #[error("unexpected end of input")]
     UnexpectedEnd,
 }
 
@@ -112,25 +116,29 @@ impl Parse for Concat {
 
 impl Parse for Star {
     fn parse(chars: &mut Ctx) -> Result<Self, ParseError> {
-        let left = Optional::parse(chars)?;
+        let left = Terminal::parse(chars)?;
         match chars.peek_skip_whitespace() {
             Some('*') => {
                 chars.next_skip_whitespace();
                 Ok(Star::Star(Box::new(left)))
             },
-            _ => Ok(Star::Optional(Box::new(left))),
+            Some('?') => {
+                chars.next_skip_whitespace();
+                Ok(Star::Optional(Box::new(left)))
+            },
+            _ => Ok(Star::Terminal(Box::new(left))),
         }
     }
 }
 
-impl Parse for Optional {
+impl Parse for Terminal {
     fn parse(chars: &mut Ctx) -> Result<Self, ParseError> {
         match chars.next_skip_whitespace() {
-            Some('.') => Ok(Optional::AnyChar),
+            Some('.') => Ok(Terminal::AnyChar),
             Some('(') => {
                 let ast = Ast::parse(chars)?;
                 match chars.next_skip_whitespace() {
-                    Some(')') => Ok(Optional::Group(Box::new(ast))),
+                    Some(')') => Ok(Terminal::Group(Box::new(ast))),
                     Some(c) => Err(ParseError::UnexpectedChar(c)),
                     None => Err(ParseError::UnexpectedEnd),
                 }
@@ -140,9 +148,9 @@ impl Parse for Optional {
                     Some(c) => c,
                     None => return Err(ParseError::UnexpectedEnd),
                 };
-                Ok(Optional::Char(c))
+                Ok(Terminal::Char(c))
             },
-            Some(c) => Ok(Optional::Char(c)),
+            Some(c) => Ok(Terminal::Char(c)),
             None => Err(ParseError::UnexpectedEnd),
         }
     }
@@ -176,18 +184,18 @@ impl Display for Star {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Star::Star(optional) => write!(f, "({}*)", optional),
-            Star::Optional(optional) => write!(f, "{}", optional),
+            Star::Optional(optional) => write!(f, "({}?)", optional),
+            Star::Terminal(optional) => write!(f, "{}", optional),
         }
     }
 }
 
-impl Display for Optional {
+impl Display for Terminal {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Optional::Optional(ast) => write!(f, "({}?)", ast),
-            Optional::AnyChar => write!(f, "."),
-            Optional::Char(c) => write!(f, "{}", c),
-            Optional::Group(ast) => write!(f, "({})", ast),
+            Terminal::AnyChar => write!(f, "."),
+            Terminal::Char(c) => write!(f, "{}", c),
+            Terminal::Group(ast) => write!(f, "({})", ast),
         }
     }
 }
@@ -313,23 +321,23 @@ impl ToNfa for Star {
                 nfa.add_epsilon_transition(mid, to);
                 optional.add_to_nfa(nfa, mid, mid);
             },
-            Star::Optional(optional) => optional.add_to_nfa(nfa, from, to),
+            Star::Optional(ast) => {
+                ast.add_to_nfa(nfa, from, to);
+                nfa.add_epsilon_transition(from, to);
+            },
+            Star::Terminal(optional) => optional.add_to_nfa(nfa, from, to),
         }
     }
 }
 
-impl ToNfa for Optional {
+impl ToNfa for Terminal {
     fn add_to_nfa(&self, nfa: &mut Nfa, from: usize, to: usize) {
         match self {
-            Optional::Optional(ast) => {
-                ast.add_to_nfa(nfa, from, to);
-                nfa.add_epsilon_transition(from, to);
-            },
-            Optional::AnyChar => {
+            Terminal::AnyChar => {
                 nfa.add_transition(from, to, NfaTransitions::AnyChar);
             },
-            Optional::Char(c) => nfa.add_transition(from, to, NfaTransitions::Char(*c)),
-            Optional::Group(ast) => ast.add_to_nfa(nfa, from, to),
+            Terminal::Char(c) => nfa.add_transition(from, to, NfaTransitions::Char(*c)),
+            Terminal::Group(ast) => ast.add_to_nfa(nfa, from, to),
         }
     }
 }
@@ -431,7 +439,6 @@ impl Dfa {
 impl ToTokens for Dfa {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let start = self.start;
-        let accept_states = &self.accept_states;
         let char_transitions =
             self.transitions
                 .iter()

@@ -1,6 +1,6 @@
 [package]
 name = "dfa-regex"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 description = "Match regular expressions using a corresponding DFA"
 license = "MIT"

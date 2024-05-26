@@ -520,22 +520,3 @@ pub fn regex(input: TokenStream) -> TokenStream {
     }
     .into()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse() {
-        let mut chars = Ctx("aa + b*");
-        let ast = Ast::parse(&mut chars).unwrap();
-        println!("{:?}", ast);
-        println!("{}", ast);
-        let nfa = ast.as_nfa();
-        println!("{:?}", nfa);
-        let dfa = nfa.to_dfa();
-        println!("{:?}", dfa);
-        println!("{}", dfa.to_token_stream());
-        panic!();
-    }
-}

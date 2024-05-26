@@ -499,6 +499,25 @@ impl syn::parse::Parse for Input {
     }
 }
 
+/// Create a regex matcher
+///
+/// # Regex Syntax
+/// - `.`: matches any character
+/// - `a`: matches the character `a`
+/// - `a*`: matches zero or more `a`
+/// - `a?`: matches zero or one `a`
+/// - `a+b`: matches `a` or `b`
+/// - `(a+b)*`: matches zero or more `a` or `b`
+///
+/// # Example
+/// ```rust
+/// use dfa_regex::regex;
+///
+/// regex!(Foo => "a*");
+/// assert!(Foo::matches("aaaa"));
+/// assert!(Foo::matches(""));
+/// assert!(!Foo::matches("b"));
+/// ```
 #[proc_macro]
 pub fn regex(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as Input);
